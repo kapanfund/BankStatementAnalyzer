@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinScan — Bank Statement Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0f1e;
+    --navy-3: #1a2235;
+    --navy-4: #243048;
+    --amber: #f0a500;
+    --amber-dim: rgba(240,165,0,0.15);
+    --teal: #0ea5e9;
+    --teal-dim: rgba(14,165,233,0.12);
+    --green: #22c55e;
+    --red: #f43f5e;
+    --red-dim: rgba(244,63,94,0.12);
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --border: rgba(255,255,255,0.07);
+    --border-accent: rgba(240,165,0,0.3);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--navy); color:var(--text); font-family:'Outfit',sans-serif; min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(240,165,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(240,165,0,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+  .glow { position:fixed; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(240,165,0,0.06) 0%,transparent 70%); top:-200px; right:-100px; pointer-events:none; z-index:0; }
+  .glow2 { position:fixed; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(14,165,233,0.05) 0%,transparent 70%); bottom:-100px; left:-50px; pointer-events:none; z-index:0; }
+  .wrap { max-width:1100px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+  header { border-bottom:1px solid var(--border); backdrop-filter:blur(8px); position:sticky; top:0; z-index:100; background:rgba(10,15,30,0.85); }
+  .header-inner { display:flex; align-items:center; justify-content:space-between; padding:18px 0; }
+  .logo { display:flex; align-items:center; gap:10px; }
+  .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--amber),#ff6b35); border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .logo-text { font-family:'DM Serif Display',serif; font-size:22px; letter-spacing:-0.5px; }
+  .logo-text span { color:var(--amber); }
+  .logo-sub { font-size:11px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; }
+  .header-badge { font-size:11px; color:var(--amber); border:1px solid var(--border-accent); border-radius:20px; padding:4px 12px; font-family:'DM Mono',monospace; background:var(--amber-dim); }
+
+  .hero { padding:60px 0 40px; text-align:center; }
+  .hero-eyebrow { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--amber); font-family:'DM Mono',monospace; margin-bottom:16px; }
+  .hero h1 { font-family:'DM Serif Display',serif; font-size:clamp(32px,5vw,52px); line-height:1.1; letter-spacing:-1px; margin-bottom:16px; }
+  .hero h1 em { font-style:italic; color:var(--amber); }
+  .hero p { color:var(--text-dim); font-size:16px; max-width:520px; margin:0 auto; line-height:1.6; }
+
+  .upload-section { padding:20px 0 40px; }
+  .dropzone { border:2px dashed rgba(240,165,0,0.3); border-radius:16px; padding:48px 32px; text-align:center; cursor:pointer; transition:all 0.3s; background:rgba(240,165,0,0.02); position:relative; }
+  .dropzone:hover,.dropzone.dragover { border-color:var(--amber); background:rgba(240,165,0,0.05); transform:translateY(-2px); }
+  .dropzone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .drop-icon { font-size:40px; margin-bottom:16px; display:block; }
+  .drop-title { font-size:18px; font-weight:600; margin-bottom:8px; }
+  .drop-sub { font-size:13px; color:var(--text-muted); margin-bottom:20px; }
+  .drop-formats { display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .fmt-badge { font-size:11px; font-family:'DM Mono',monospace; padding:3px 10px; border-radius:20px; border:1px solid var(--border); color:var(--text-muted); background:var(--navy-3); }
+
+  .file-list { margin-top:16px; display:flex; flex-direction:column; gap:8px; }
+  .file-item { background:var(--navy-3); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; display:flex; align-items:center; gap:12px; font-size:13px; }
+  .file-item .fi-icon { font-size:20px; }
+  .file-item .fi-name { flex:1; font-weight:500; }
+  .file-item .fi-size { color:var(--text-muted); font-family:'DM Mono',monospace; font-size:11px; }
+  .fi-status { font-size:11px; font-family:'DM Mono',monospace; padding:2px 8px; border-radius:10px; }
+  .fi-status.ready { background:rgba(34,197,94,0.15); color:var(--green); }
+  .file-item .fi-remove { cursor:pointer; color:var(--text-muted); width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+  .file-item .fi-remove:hover { background:var(--red-dim); color:var(--red); }
+
+  .analyze-btn { margin-top:20px; width:100%; padding:16px; background:linear-gradient(135deg,var(--amber),#e67e00); border:none; border-radius:var(--radius); color:#000; font-family:'Outfit',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .analyze-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(240,165,0,0.3); }
+  .analyze-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .processing { display:none; text-align:center; padding:40px; }
+  .proc-spinner { width:48px; height:48px; border:3px solid var(--navy-4); border-top-color:var(--amber); border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 20px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .proc-text { color:var(--text-dim); font-size:14px; }
+  .proc-stage { color:var(--amber); font-size:13px; font-family:'DM Mono',monospace; margin-top:8px; }
+  .progress-wrap { margin-top:16px; background:var(--navy-4); border-radius:10px; height:6px; overflow:hidden; max-width:300px; margin-left:auto; margin-right:auto; }
+  .progress-bar { height:100%; background:linear-gradient(90deg,var(--amber),#ff6b35); border-radius:10px; transition:width 0.4s ease; width:0%; }
+
+  .results { display:none; padding-bottom:60px; }
+  .results-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; flex-wrap:wrap; gap:16px; }
+  .results-title { font-family:'DM Serif Display',serif; font-size:28px; }
+  .results-title span { color:var(--amber); }
+  .reset-btn { padding:8px 18px; background:transparent; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-family:'Outfit',sans-serif; font-size:13px; cursor:pointer; transition:all 0.2s; }
+  .reset-btn:hover { border-color:var(--amber); color:var(--amber); }
+
+  .tab-nav { display:flex; gap:4px; background:var(--navy-3); border-radius:var(--radius); padding:4px; margin-bottom:24px; overflow-x:auto; }
+  .tab-btn { padding:8px 18px; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-muted); font-family:'Outfit',sans-serif; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .tab-btn.active { background:var(--amber); color:#000; font-weight:700; }
+
+  .scorecard { display:none; }
+  .scorecard.active { display:block; animation:fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .info-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+  .info-card { background:var(--navy-3); border:1px solid var(--border); border-radius:var(--radius); padding:16px; transition:border-color 0.2s; }
+  .info-card:hover { border-color:rgba(240,165,0,0.2); }
+  .ic-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); font-family:'DM Mono',monospace; margin-bottom:8px; }
+  .ic-value { font-size:15px; font-weight:600; line-height:1.3; word-break:break-word; }
+  .ic-value.mono { font-family:'DM Mono',monospace; font-size:13px; }
+  .info-card.accent-green { border-left:3px solid var(--green); }
+  .info-card.accent-red { border-left:3px solid var(--red); }
+  .info-card.accent-amber { border-left:3px solid var(--amber); }
+  .info-card.accent-teal { border-left:3px solid var(--teal); }
+
+  .stat-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:24px; }
+  .stat-card { background:var(--navy-3); border:1px solid var(--border); border-radius:var(--radius); padding:20px 16px; text-align:center; }
+  .sc-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); font-family:'DM Mono',monospace; margin-bottom:10px; }
+  .sc-val { font-family:'DM Serif Display',serif; font-size:22px; }
+  .sc-val.green { color:var(--green); }
+  .sc-val.red { color:var(--red); }
+  .sc-val.amber { color:var(--amber); }
+  .sc-sub { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+  .section-block { background:var(--navy-3); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; }
+  .sb-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); }
+  .sb-title { font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .sb-count { font-size:11px; font-family:'DM Mono',monospace; color:var(--text-muted); background:var(--navy-4); padding:2px 8px; border-radius:10px; }
+
+  .pattern-row { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--border); transition:background 0.15s; font-size:13px; }
+  .pattern-row:last-child { border-bottom:none; }
+  .pattern-row:hover { background:rgba(255,255,255,0.02); }
+  .pr-name { flex:1; font-weight:500; }
+  .pr-detail { color:var(--text-muted); font-size:12px; }
+  .pr-count { font-family:'DM Mono',monospace; font-size:11px; background:var(--teal-dim); color:var(--teal); padding:3px 8px; border-radius:10px; white-space:nowrap; }
+  .pr-amount { font-family:'DM Mono',monospace; font-size:12px; font-weight:600; min-width:110px; text-align:right; }
+  .pr-amount.out { color:var(--red); }
+  .pr-amount.in { color:var(--green); }
+
+  .anomaly-row { padding:14px 18px; border-bottom:1px solid var(--border); font-size:13px; }
+  .anomaly-row:last-child { border-bottom:none; }
+  .ar-type { display:inline-block; font-size:10px; font-family:'DM Mono',monospace; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:10px; margin-bottom:6px; }
+  .ar-type.warn { background:rgba(240,165,0,0.15); color:var(--amber); }
+  .ar-type.info { background:var(--teal-dim); color:var(--teal); }
+  .ar-type.alert { background:var(--red-dim); color:var(--red); }
+  .ar-msg { font-weight:500; margin-bottom:4px; }
+  .ar-detail { color:var(--text-muted); font-size:12px; }
+
+  .tx-table-wrap { overflow-x:auto; }
+  .tx-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .tx-table th { padding:10px 14px; text-align:left; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); font-family:'DM Mono',monospace; border-bottom:1px solid var(--border); white-space:nowrap; font-weight:500; }
+  .tx-table td { padding:9px 14px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  .tx-table tr:last-child td { border-bottom:none; }
+  .tx-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .tx-badge-in { color:var(--green); font-family:'DM Mono',monospace; font-weight:600; }
+  .tx-badge-out { color:var(--red); font-family:'DM Mono',monospace; font-weight:600; }
+  .tx-remark { color:var(--text-dim); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .section-divider { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); font-family:'DM Mono',monospace; margin:20px 0 12px; display:flex; align-items:center; gap:10px; }
+  .section-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .export-bar { display:flex; gap:10px; flex-wrap:wrap; margin-top:24px; padding-top:20px; border-top:1px solid var(--border); }
+  .exp-btn { padding:10px 18px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-3); color:var(--text); font-family:'Outfit',sans-serif; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:6px; }
+  .exp-btn:hover { border-color:var(--amber); color:var(--amber); }
+
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--navy-3); border:1px solid var(--border-accent); border-radius:var(--radius); padding:14px 20px; font-size:13px; transform:translateY(100px); opacity:0; transition:all 0.3s; z-index:9999; max-width:320px; }
+  .toast.show { transform:translateY(0); opacity:1; }
+  .toast.success { border-color:rgba(34,197,94,0.4); }
+  .toast.error { border-color:rgba(244,63,94,0.4); }
+
+  @media(max-width:600px) {
+    .info-grid { grid-template-columns:1fr 1fr; }
+    .stat-row { grid-template-columns:1fr 1fr; }
+    .hero h1 { font-size:28px; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div><div class="glow2"></div>
+
+<header>
+  <div class="wrap header-inner">
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      <div><div class="logo-text">Fin<span>Scan</span></div><div class="logo-sub">Statement Analyzer</div></div>
+    </div>
+    <div class="header-badge">v2.0 · AI-Powered</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-eyebrow">Bank Statement Intelligence</div>
+    <h1>Analisis Rekening<br><em>Cepat & Akurat</em></h1>
+    <p>Upload rekening koran PDF, XLSX, atau CSV. AI membaca dokumen langsung dan menghasilkan scorecard lengkap dengan deteksi pola & anomali.</p>
+  </div>
+
+  <div class="upload-section" id="uploadSection">
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple accept=".pdf,.xlsx,.xls,.csv">
+      <span class="drop-icon">📂</span>
+      <div class="drop-title">Drag & drop file rekening di sini</div>
+      <div class="drop-sub">atau klik untuk pilih · AI membaca PDF langsung tanpa plugin tambahan</div>
+      <div class="drop-formats">
+        <span class="fmt-badge">PDF</span>
+        <span class="fmt-badge">XLSX</span>
+        <span class="fmt-badge">XLS</span>
+        <span class="fmt-badge">CSV</span>
+      </div>
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <button class="analyze-btn" id="analyzeBtn" disabled onclick="startAnalysis()">🔍 Analisis Rekening</button>
+  </div>
+
+  <div class="processing" id="processingView">
+    <div class="proc-spinner"></div>
+    <div class="proc-text">Sedang menganalisis data rekening...</div>
+    <div class="proc-stage" id="procStage">Mempersiapkan dokumen...</div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  </div>
+
+  <div class="results" id="resultsView">
+    <div class="results-header">
+      <div class="results-title">Scorecard <span>Rekening</span></div>
+      <button class="reset-btn" onclick="resetApp()">← Upload Baru</button>
+    </div>
+    <div class="tab-nav" id="tabNav"></div>
+    <div id="scorecards"></div>
+    <div class="export-bar">
+      <button class="exp-btn" onclick="exportJSON()">⬇ Export JSON</button>
+      <button class="exp-btn" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="exp-btn" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let uploadedFiles = [];
+let analysisResults = [];
+
+// ── DROP ZONE ──────────────────────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles([...e.dataTransfer.files]); });
+fileInput.addEventListener('change', () => { handleFiles([...fileInput.files]); fileInput.value = ''; });
+
+function handleFiles(files) {
+  files.forEach(f => {
+    if (uploadedFiles.find(x => x.name === f.name)) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!['pdf','xlsx','xls','csv'].includes(ext)) { showToast('Format tidak didukung: ' + f.name, 'error'); return; }
+    uploadedFiles.push(f);
+  });
+  renderFileList();
+  document.getElementById('analyzeBtn').disabled = uploadedFiles.length === 0;
+}
+
+function renderFileList() {
+  const icons = { pdf:'📄', xlsx:'📊', xls:'📊', csv:'📋' };
+  document.getElementById('fileList').innerHTML = uploadedFiles.map((f, i) => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    const sizeStr = f.size < 1024*1024 ? (f.size/1024).toFixed(1)+' KB' : (f.size/1024/1024).toFixed(1)+' MB';
+    return `<div class="file-item">
+      <span class="fi-icon">${icons[ext]||'📄'}</span>
+      <span class="fi-name">${f.name}</span>
+      <span class="fi-size">${sizeStr} · ${ext.toUpperCase()}</span>
+      <span class="fi-status ready">✓ Siap</span>
+      <span class="fi-remove" onclick="removeFile(${i})">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function removeFile(i) {
+  uploadedFiles.splice(i, 1);
+  renderFileList();
+  document.getElementById('analyzeBtn').disabled = uploadedFiles.length === 0;
+}
+
+// ── ANALYSIS FLOW ────────────────────────────────────────────────────────────
+async function startAnalysis() {
+  if (!uploadedFiles.length) return;
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('processingView').style.display = 'block';
+  analysisResults = [];
+
+  for (let i = 0; i < uploadedFiles.length; i++) {
+    const f = uploadedFiles[i];
+    setProgress(Math.round(i / uploadedFiles.length * 85), `[${i+1}/${uploadedFiles.length}] Menganalisis: ${f.name}`);
+    try {
+      const result = await analyzeFile(f);
+      analysisResults.push({ fileName: f.name, ...result });
+    } catch(e) {
+      console.error(e);
+      analysisResults.push({ fileName: f.name, ...makeFallback(f.name, e.message) });
+    }
+  }
+
+  setProgress(100, 'Selesai!');
+  await new Promise(r => setTimeout(r, 400));
+
+  renderResults();
+  document.getElementById('processingView').style.display = 'none';
+  document.getElementById('resultsView').style.display = 'block';
+  showToast(`✓ ${analysisResults.length} rekening berhasil dianalisis`, 'success');
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('procStage').textContent = msg;
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+// ── READ FILE AS BASE64 ───────────────────────────────────────────────────────
+function readBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Gagal membaca file'));
+    r.readAsDataURL(file);
+  });
+}
+
+function readText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(new Error('Gagal membaca file'));
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+// ── ANALYZE A SINGLE FILE ─────────────────────────────────────────────────────
+async function analyzeFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  let messageContent;
+
+  if (ext === 'pdf') {
+    // Send PDF bytes directly to Claude — no PDF.js needed
+    const b64 = await readBase64(file);
+    messageContent = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+      { type: 'text', text: AI_PROMPT }
+    ];
+  } else {
+    // CSV / XLSX as text
+    let text = await readText(file).catch(() => '');
+    messageContent = [
+      { type: 'text', text: `Data rekening dari file "${file.name}":\n\n${text.substring(0, 28000)}\n\n${AI_PROMPT}` }
+    ];
+  }
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: messageContent }]
+    })
+  });
+
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}));
+    throw new Error(e.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const raw = data.content.map(c => c.text || '').join('');
+
+  // Extract the JSON object
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Tidak ada JSON dalam respons AI');
+  return JSON.parse(m[0]);
+}
+
+// ── AI PROMPT ─────────────────────────────────────────────────────────────────
+const AI_PROMPT = `Kamu adalah analis rekening koran profesional Indonesia. Baca dokumen ini dan kembalikan hasil analisis sebagai SATU objek JSON saja, tanpa teks lain, tanpa markdown, tanpa backtick.
+
+Format JSON yang diperlukan:
+{
+  "namaRekening": "string",
+  "bank": "string",
+  "cabang": "string",
+  "periodeAwal": "DD/MM/YYYY",
+  "periodeAkhir": "DD/MM/YYYY",
+  "matauang": "IDR",
+  "noRekening": "string",
+  "saldoAwal": number,
+  "saldoAkhir": number,
+  "totalMasuk": number,
+  "totalKeluar": number,
+  "jumlahTransaksiMasuk": number,
+  "jumlahTransaksiKeluar": number,
+  "transaksiTerbesar": { "keterangan": "string", "nominal": number, "tipe": "masuk|keluar", "tanggal": "string" },
+  "transferTerbesar": { "keterangan": "string", "nominal": number, "tipe": "masuk|keluar", "tanggal": "string" },
+  "polaBerulang": [
+    { "nama": "string", "tipe": "masuk|keluar", "frekuensi": number, "totalNominal": number, "rataRata": number, "kategori": "string", "tanggalTransaksi": ["string"] }
+  ],
+  "gajiDanIncome": [
+    { "sumber": "string", "nominal": number, "tanggal": "string", "tipe": "string" }
+  ],
+  "biayaAdmin": [
+    { "keterangan": "string", "nominal": number, "tanggal": "string" }
+  ],
+  "anomali": [
+    { "tipe": "warn|alert|info", "judul": "string", "deskripsi": "string", "data": "string" }
+  ],
+  "ringkasanKategori": [
+    { "kategori": "string", "totalKeluar": number, "totalMasuk": number, "frekuensi": number }
+  ],
+  "transaksi": [
+    { "no": number, "tanggal": "string", "keterangan": "string", "nominal": number, "tipe": "masuk|keluar", "saldo": number }
+  ]
+}
+
+Aturan:
+- Semua nominal = angka murni integer/float (BUKAN string). Contoh: 1500000 bukan "1.500.000"
+- Pola berulang = merchant/pengirim/penerima yang muncul 2+ kali
+- Kategorikan: Shuttle Royal/ojek/taksi = Transportasi; bakery/warung/resto/kafe = Makanan & Minuman; GoPay/e-money = E-Wallet; Tokopedia/Blibli/Shopee = E-Commerce; Guardian/apotik = Kesehatan; asuransi = Asuransi; dll
+- Anomali: deteksi biaya admin tidak konsisten, transaksi besar langsung setelah transfer masuk, gap transaksi >5 hari, nominal tidak wajar
+- Sertakan SEMUA transaksi dalam array "transaksi"
+- gajiDanIncome = transfer masuk dari institusi eksternal (bukan transfer dari rekening sendiri)`;
+
+// ── FALLBACK ──────────────────────────────────────────────────────────────────
+function makeFallback(fileName, errMsg) {
+  return {
+    namaRekening:'-', bank:'-', cabang:'-', periodeAwal:'-', periodeAkhir:'-',
+    matauang:'IDR', noRekening:'-', saldoAwal:0, saldoAkhir:0, totalMasuk:0, totalKeluar:0,
+    jumlahTransaksiMasuk:0, jumlahTransaksiKeluar:0,
+    transaksiTerbesar:{keterangan:'-',nominal:0,tipe:'keluar',tanggal:'-'},
+    transferTerbesar:{keterangan:'-',nominal:0,tipe:'keluar',tanggal:'-'},
+    polaBerulang:[], gajiDanIncome:[], biayaAdmin:[],
+    anomali:[{tipe:'alert',judul:'Gagal memproses file',deskripsi:errMsg||'Tidak diketahui.',data:fileName}],
+    ringkasanKategori:[], transaksi:[]
+  };
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderResults() {
+  const tabNav = document.getElementById('tabNav');
+  const scorecards = document.getElementById('scorecards');
+  tabNav.innerHTML = '';
+  scorecards.innerHTML = '';
+  analysisResults.forEach((r, i) => {
+    const label = r.fileName.replace(/\.[^.]+$/, '').substring(0, 24);
+    tabNav.innerHTML += `<button class="tab-btn ${i===0?'active':''}" onclick="switchTab(${i})" id="tab-${i}">${label}</button>`;
+    scorecards.innerHTML += buildScorecard(r, i);
+  });
+}
+
+function switchTab(i) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.scorecard').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+i).classList.add('active');
+  document.getElementById('sc-'+i).classList.add('active');
+}
+
+const f = n => (typeof n === 'number' && !isNaN(n)) ? new Intl.NumberFormat('id-ID').format(Math.abs(Math.round(n))) : '-';
+
+function buildScorecard(r, idx) {
+  const net = (r.totalMasuk||0) - (r.totalKeluar||0);
+
+  const info = `<div class="info-grid">
+    <div class="info-card accent-amber"><div class="ic-label">Pemilik Rekening</div><div class="ic-value">${r.namaRekening||'-'}</div></div>
+    <div class="info-card"><div class="ic-label">Bank & Cabang</div><div class="ic-value">${r.bank||'-'} · ${r.cabang||'-'}</div></div>
+    <div class="info-card"><div class="ic-label">Periode</div><div class="ic-value">${r.periodeAwal||'-'} s/d ${r.periodeAkhir||'-'}</div></div>
+    <div class="info-card"><div class="ic-label">No. Rekening</div><div class="ic-value mono">${r.noRekening||'-'}</div></div>
+    <div class="info-card"><div class="ic-label">Mata Uang</div><div class="ic-value">${r.matauang||'IDR'}</div></div>
+    <div class="info-card"><div class="ic-label">File</div><div class="ic-value" style="font-size:12px;color:var(--text-muted)">${r.fileName}</div></div>
+  </div>`;
+
+  const stats = `<div class="stat-row">
+    <div class="stat-card"><div class="sc-label">Saldo Awal</div><div class="sc-val amber">${f(r.saldoAwal)}</div><div class="sc-sub">IDR</div></div>
+    <div class="stat-card"><div class="sc-label">Saldo Akhir</div><div class="sc-val ${(r.saldoAkhir||0)>=(r.saldoAwal||0)?'green':'red'}">${f(r.saldoAkhir)}</div><div class="sc-sub">IDR</div></div>
+    <div class="stat-card"><div class="sc-label">Total Masuk</div><div class="sc-val green">${f(r.totalMasuk)}</div><div class="sc-sub">${r.jumlahTransaksiMasuk||0} transaksi</div></div>
+    <div class="stat-card"><div class="sc-label">Total Keluar</div><div class="sc-val red">${f(r.totalKeluar)}</div><div class="sc-sub">${r.jumlahTransaksiKeluar||0} transaksi</div></div>
+    <div class="stat-card"><div class="sc-label">Net Cash Flow</div><div class="sc-val ${net>=0?'green':'red'}">${net>=0?'+':'−'}${f(net)}</div><div class="sc-sub">Masuk − Keluar</div></div>
+    <div class="stat-card"><div class="sc-label">Total Transaksi</div><div class="sc-val amber">${(r.jumlahTransaksiMasuk||0)+(r.jumlahTransaksiKeluar||0)}</div><div class="sc-sub">bulan ini</div></div>
+  </div>`;
+
+  const topTx = `<div class="section-divider">Transaksi Menonjol</div><div class="info-grid">
+    ${r.transaksiTerbesar?.nominal ? `<div class="info-card accent-${r.transaksiTerbesar.tipe==='masuk'?'green':'red'}">
+      <div class="ic-label">Transaksi Terbesar (${r.transaksiTerbesar.tipe==='masuk'?'Masuk':'Keluar'})</div>
+      <div class="ic-value">IDR ${f(r.transaksiTerbesar.nominal)}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${r.transaksiTerbesar.keterangan} · ${r.transaksiTerbesar.tanggal}</div>
+    </div>` : ''}
+    ${r.transferTerbesar?.nominal ? `<div class="info-card accent-teal">
+      <div class="ic-label">Transfer Terbesar</div>
+      <div class="ic-value">IDR ${f(r.transferTerbesar.nominal)}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${r.transferTerbesar.keterangan} · ${r.transferTerbesar.tanggal}</div>
+    </div>` : ''}
+  </div>`;
+
+  const income = r.gajiDanIncome?.length ? `<div class="section-divider">Gaji & Income</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>💰</span> Sumber Pemasukan</div><div class="sb-count">${r.gajiDanIncome.length} item</div></div>
+      ${r.gajiDanIncome.map(g=>`<div class="pattern-row">
+        <div><div class="pr-name">${g.sumber||'-'}</div><div class="pr-detail">${g.tipe||'Income'}</div></div>
+        <div style="font-size:12px;color:var(--text-muted)">${g.tanggal||'-'}</div>
+        <div class="pr-amount in">+${f(g.nominal)}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const pola = r.polaBerulang?.length ? `<div class="section-divider">Pola Berulang</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>🔁</span> Transaksi Berulang</div><div class="sb-count">${r.polaBerulang.length} pola</div></div>
+      ${[...r.polaBerulang].sort((a,b)=>(b.totalNominal||0)-(a.totalNominal||0)).map(p=>`<div class="pattern-row">
+        <div><div class="pr-name">${p.nama||'-'}</div><div class="pr-detail">${p.kategori||'-'}</div></div>
+        <span class="pr-count">${p.frekuensi||1}x</span>
+        <div><div class="pr-amount ${p.tipe==='masuk'?'in':'out'}">${p.tipe==='masuk'?'+':'−'}${f(p.totalNominal)}</div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:right">rata ${f(p.rataRata)}</div></div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const admin = r.biayaAdmin?.length ? `<div class="section-divider">Biaya Admin & Potongan</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>🏦</span> Biaya Rekening</div><div class="sb-count">${r.biayaAdmin.length} item</div></div>
+      ${r.biayaAdmin.map(b=>`<div class="pattern-row">
+        <div class="pr-name">${b.keterangan||'Biaya Admin'}</div>
+        <div class="pr-detail">${b.tanggal||'-'}</div>
+        <div class="pr-amount out">−${f(b.nominal)}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const kat = r.ringkasanKategori?.length ? `<div class="section-divider">Ringkasan Kategori</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>📂</span> Pengelompokan Pengeluaran</div></div>
+      ${[...r.ringkasanKategori].sort((a,b)=>(b.totalKeluar||0)-(a.totalKeluar||0)).map(k=>`<div class="pattern-row">
+        <div class="pr-name">${k.kategori||'-'}</div>
+        <span class="pr-count">${k.frekuensi||0}x</span>
+        <div>${k.totalKeluar?`<div class="pr-amount out">−${f(k.totalKeluar)}</div>`:''}${k.totalMasuk?`<div class="pr-amount in" style="text-align:right">+${f(k.totalMasuk)}</div>`:''}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const anom = r.anomali?.length ? `<div class="section-divider">Deteksi Anomali</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>🔍</span> Anomali & Inkonsistensi</div><div class="sb-count">${r.anomali.length} temuan</div></div>
+      ${r.anomali.map(a=>`<div class="anomaly-row">
+        <span class="ar-type ${a.tipe||'info'}">${a.tipe==='alert'?'⚠ ALERT':a.tipe==='warn'?'⚡ WARNING':'ℹ INFO'}</span>
+        <div class="ar-msg">${a.judul||'-'}</div>
+        <div class="ar-detail">${a.deskripsi||''}</div>
+        ${a.data?`<div style="margin-top:4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--amber);opacity:0.8">${a.data}</div>`:''}
+      </div>`).join('')}
+    </div>` : '';
+
+  let tx = '';
+  if (r.transaksi?.length) {
+    const rows = r.transaksi.slice(0,100).map(t=>`<tr>
+      <td style="color:var(--text-muted);font-size:11px">${t.no||''}</td>
+      <td style="color:var(--text-muted);white-space:nowrap">${t.tanggal||'-'}</td>
+      <td class="tx-remark" title="${String(t.keterangan||'').replace(/"/g,'')}">${t.keterangan||'-'}</td>
+      <td class="${t.tipe==='masuk'?'tx-badge-in':'tx-badge-out'}">${t.tipe==='masuk'?'+':'−'}${f(t.nominal)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-dim)">${f(t.saldo)}</td>
+    </tr>`).join('');
+    const more = r.transaksi.length > 100 ? `<div style="text-align:center;padding:14px;color:var(--text-muted);font-size:12px">… dan ${r.transaksi.length-100} transaksi lainnya — Export JSON untuk data lengkap</div>` : '';
+    tx = `<div class="section-divider">Daftar Transaksi</div>
+    <div class="section-block">
+      <div class="sb-header"><div class="sb-title"><span>📋</span> Riwayat Transaksi</div><div class="sb-count">${r.transaksi.length} transaksi</div></div>
+      <div class="tx-table-wrap"><table class="tx-table">
+        <thead><tr><th>#</th><th>Tanggal</th><th>Keterangan</th><th>Nominal</th><th>Saldo</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>${more}
+    </div>`;
+  }
+
+  return `<div class="scorecard ${idx===0?'active':''}" id="sc-${idx}">
+    ${info}${stats}${topTx}${income}${pola}${admin}${kat}${anom}${tx}
+  </div>`;
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportJSON() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(analysisResults,null,2)],{type:'application/json'}));
+  a.download = 'finscan-results.json'; a.click();
+  showToast('JSON berhasil diexport!', 'success');
+}
+function exportCSV() {
+  const rows = [['Nama','Bank','Cabang','Periode','No Rek','Saldo Awal','Saldo Akhir','Total Masuk','Total Keluar','Tx Masuk','Tx Keluar']];
+  analysisResults.forEach(r => rows.push([r.namaRekening,r.bank,r.cabang,`${r.periodeAwal} - ${r.periodeAkhir}`,r.noRekening,r.saldoAwal,r.saldoAkhir,r.totalMasuk,r.totalKeluar,r.jumlahTransaksiMasuk,r.jumlahTransaksiKeluar]));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+  a.download = 'finscan-summary.csv'; a.click();
+  showToast('CSV berhasil diexport!', 'success');
+}
+
+function resetApp() {
+  uploadedFiles = []; analysisResults = [];
+  fileInput.value = '';
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('analyzeBtn').disabled = true;
+  ['resultsView','processingView'].forEach(id => document.getElementById(id).style.display='none');
+  document.getElementById('uploadSection').style.display = 'block';
+  document.getElementById('progressBar').style.width = '0%';
+}
+
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
